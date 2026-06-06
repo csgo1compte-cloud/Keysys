@@ -1,4 +1,4 @@
-local UI = loadstring(game:HttpGet("TON_URL_RAW_ICI"))()
+local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/csgo1compte-cloud/Keysys/refs/heads/main/RayVoid"))()
 UI:SetScriptName("SpinScript")
 UI:SetPremium(true)
 
