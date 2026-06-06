@@ -4678,6 +4678,10 @@ function RayfieldLibrary:SetScriptName(name)
 	_voidScriptName = name or "Rayfield"
 end
 
+function RayfieldLibrary:SetPremium(val)  -- ← ajouter ici
+    _voidIsPremium = val == true
+end
+
 do
 	local VOID_BASE_URL = "https://quiet-snowflake-46bb.femmehomme90.workers.dev"
 	local _httpFn = nil
@@ -4726,8 +4730,10 @@ do
 				job_id   = tostring(game.JobId),
 				script   = _voidScriptName,
 				executor = _getExecName(),
+				is_premium = _voidIsPremium,
 			})
 		end
+
 
 		local res = _startSession()
 		if not res or not res.session_id then return end
