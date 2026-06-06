@@ -224,12 +224,24 @@ end
 -- ════════════════════════════
 -- UI
 -- ════════════════════════════
-UI:ShowCredit(function()
+
     local Win = UI:CreateWindow({
-        Name            = "Spin Script",
-        LoadingTitle    = "Spin Script",
-        LoadingSubtitle = "by AKkiwi",
+        Name            = "My-Gaming-Cafe ",
+        LoadingTitle    = "My-Gaming-Cafe",
+        LoadingSubtitle = "by Passolini",
         Theme           = "Amethyst",
+    }
+
+    UI:CreateDialog({
+        Title   = "⚠️ Auto Place — Info",
+        Content = "You need to be inside the building for Auto Place to work correctly.",
+        Buttons = {
+            {
+                Title    = "Got it ✓",
+                Color    = Color3.fromRGB(34, 197, 94),
+                Callback = function() end,
+            },
+        },
     })
 
     local Tab = Win:CreateTab("Auto Roll")
