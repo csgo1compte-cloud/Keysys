@@ -230,7 +230,7 @@ end
         LoadingTitle    = "My-Gaming-Cafe",
         LoadingSubtitle = "by Passolini",
         Theme           = "Amethyst",
-    }
+    })
 
     UI:CreateDialog({
         Title   = "⚠️ Auto Place — Info",
