@@ -58,7 +58,7 @@ button.MouseButton1Click:Connect(function()
     screenGui:Destroy()
     -- ici le reste du script
 
-local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/csgo1compte-cloud/Keysys/refs/heads/main/RayVoid"))()
+local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/csgo1compte-cloud/Keysys/refs/heads/main/RayvoidU2"))()
 UI:SetScriptName("SpinScript")
 UI:SetPremium(true)
 
