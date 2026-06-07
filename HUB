@@ -1,1 +1,28 @@
+-- ════════════════════════════════════════════════════════
+--  RayVoid Hub
+-- ════════════════════════════════════════════════════════
 
+local Scripts = {
+    -- [PlaceId] = { Name = "Nom du jeu", Url = "lien raw" }
+    [107646426076756] = {
+        Name = "Build-A-Ring-Farm",
+        Url  = "https://raw.githubusercontent.com/csgo1compte-cloud/Keysys/refs/heads/main/BRFA_pre",
+    },
+    [101736964164901] = {
+        Name = "Lawn Brainrot",
+        Url  = "https://raw.githubusercontent.com/csgo1compte-cloud/Keysys/refs/heads/main/Coffe",
+    },
+    
+}
+
+local entry = Scripts[game.PlaceId]
+
+if entry then
+    loadstring(game:HttpGet(entry.Url))()
+else
+    local list = ""
+    for _, data in pairs(Scripts) do
+        list = list .. "\n  • " .. data.Name
+    end
+    warn("[RayVoid Hub] Jeu non supporté. Jeux disponibles :" .. list)
+end
