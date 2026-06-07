@@ -1,5 +1,4 @@
--- RayVoid — Rayfield + VoidUI components hybrid
--- Fixes applied: :connect → :Connect (x4), Maximise() dragBarCosmetic nil-check, CreateOverlay double UIStroke → outer frame pattern, Tab:Clear() added
+--[🔴 CritiqueRayfieldLibrary.LoadConfiguration() sans :4270🔴 CritiqueColorPickerSettings.Color HSV au lieu de RGB~2014, 2035🔴 Critique.connect minuscule (4 occurrences)2041, 2045, 2049, 2054🔴 BugDouble UIStroke dans CreateOverlay4429–4430🔴 BugMaximise() sans nil-check sur dragBarCosmetic1434🟡 PerfConnexions GetPropertyChangedSignal qui s'accumulent2603, 2618🟡 PerfRenderStepped actif en permanence2054🟡 PerfBoucle bloquante pour les assets770🟠 CodeShadow de paramètre dans SliderSettings:Set3155🟠 CodeShadow de variable color dans setDisplay1992]
 
 if debugX then
 	warn('Initialising Rayfield')
@@ -66,7 +65,7 @@ end
 local function VStroke(thickness, color, parent, transparency)
     local s = Instance.new("UIStroke")
     s.Thickness       = thickness    or 1
-    s.Color           = color        or SelectedTheme.ElementStroke
+    s.Color           = color        or VC.BorderDim
     s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     s.Transparency    = transparency or 0
     s.Parent          = parent
@@ -98,7 +97,7 @@ local function VMakeFrame(parent, size, position, bgColor, bgTransparency)
     local f = Instance.new("Frame")
     f.Size                   = size           or UDim2.new(1, 0, 1, 0)
     f.Position               = position       or UDim2.new(0, 0, 0, 0)
-    f.BackgroundColor3       = bgColor        or SelectedTheme.ElementBackground
+    f.BackgroundColor3       = bgColor        or VC.BgMid
     f.BackgroundTransparency = bgTransparency or 0
     f.BorderSizePixel        = 0
     f.Parent                 = parent
@@ -112,7 +111,7 @@ local function VMakeLabel(parent, text, size, position, textColor, textSize, fon
     l.Position               = position  or UDim2.new(0, 0, 0, 0)
     l.BackgroundTransparency = 1
     l.Text                   = text      or ""
-    l.TextColor3             = textColor or SelectedTheme.TextColor
+    l.TextColor3             = textColor or VC.TextBright
     l.TextSize               = textSize  or 13
     l.Font                   = font      or Enum.Font.GothamBold
     l.TextXAlignment         = xAlign    or Enum.TextXAlignment.Left
@@ -126,10 +125,10 @@ local function VMakeAccentBar(parent)
     local bar = VMakeFrame(parent,
         UDim2.new(0, 3, 0.55, 0),
         UDim2.new(0, 0, 0.225, 0),
-        Color3.fromRGB(255,255,255), 0
+        VC.White, 0
     )
     VCorner(2, bar)
-    VGradient(SelectedTheme.SliderProgress, SelectedTheme.SliderStroke, bar, 90)
+    VGradient(VC.Accent, VC.AccentPink, bar, 90)
     return bar
 end
 
@@ -219,7 +218,7 @@ local function secureNotify(wType, title, content)
 	end)
 end
 local InterfaceBuild = 'UU2NX'
-local Release = "Build 1.748"
+local Release = "Build 1.746"
 local RayfieldFolder = "Rayfield"
 local ConfigurationFolder = RayfieldFolder.."/Configurations"
 local ConfigurationExtension = ".rfld"
@@ -647,9 +646,6 @@ local RayfieldLibrary = {
 	}
 }
 
--- SelectedTheme partagé entre les helpers VoidUI et CreateWindow
--- Initialisé à Default immédiatement pour que les helpers V* ne crashent jamais
-local SelectedTheme = RayfieldLibrary.Theme.Default
 
 
 
@@ -867,7 +863,55 @@ local searchOpen = false
 local Notifications = Rayfield.Notifications
 local keybindConnections = {} -- For storing keybind connections to disconnect when Rayfield is destroyed
 
-SelectedTheme = RayfieldLibrary.Theme.Default
+-- ════════════════════════════════════════════════════════════════════════════
+--  FLOATING REOPEN BUTTON — apparaît quand Hidden=true, disparaît sinon
+-- ════════════════════════════════════════════════════════════════════════════
+local _reopenSg = Instance.new("ScreenGui")
+_reopenSg.Name = "Rayfield_ReopenBtn"
+_reopenSg.ResetOnSpawn = false
+_reopenSg.DisplayOrder = 9998
+local _reopenOk = pcall(function() _reopenSg.Parent = CoreGui end)
+if not _reopenOk then _reopenSg.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
+
+local _reopenBtn = Instance.new("ImageButton")
+_reopenBtn.Name = "ReopenButton"
+_reopenBtn.Size = UDim2.new(0, 50, 0, 50)
+_reopenBtn.Position = UDim2.new(0, 20, 0.5, -25)
+_reopenBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+_reopenBtn.BackgroundTransparency = 1
+_reopenBtn.Image = "rbxassetid://0"  -- << remplace par ton rbxassetid ici
+_reopenBtn.ImageTransparency = 1
+_reopenBtn.Visible = false
+_reopenBtn.Parent = _reopenSg
+
+local _reopenCorner = Instance.new("UICorner")
+_reopenCorner.CornerRadius = UDim.new(0, 10)
+_reopenCorner.Parent = _reopenBtn
+
+local _hasImage = _reopenBtn.Image ~= "" and _reopenBtn.Image ~= "rbxassetid://0"
+
+local function _showReopenBtn()
+	_reopenBtn.Visible = true
+	if _hasImage then
+		TweenService:Create(_reopenBtn, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {ImageTransparency = 0, BackgroundTransparency = 1}):Play()
+	else
+		TweenService:Create(_reopenBtn, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0.2}):Play()
+	end
+end
+
+local function _hideReopenBtn()
+	if _hasImage then
+		TweenService:Create(_reopenBtn, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
+	else
+		TweenService:Create(_reopenBtn, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
+	end
+	task.spawn(function()
+		task.wait(0.4)
+		_reopenBtn.Visible = false
+	end)
+end
+
+local SelectedTheme = RayfieldLibrary.Theme.Default
 
 local function ChangeTheme(Theme)
 	if typeof(Theme) == 'string' then
@@ -875,6 +919,23 @@ local function ChangeTheme(Theme)
 	elseif typeof(Theme) == 'table' then
 		SelectedTheme = Theme
 	end
+
+	-- Synchronise VC avec le thème courant (composants VoidUI custom)
+	VC.BgDeep     = SelectedTheme.Background
+	VC.BgMid      = SelectedTheme.ElementBackground
+	VC.BgLight    = SelectedTheme.ElementBackgroundHover
+	VC.BgLighter  = SelectedTheme.SecondaryElementBackground or SelectedTheme.ElementBackgroundHover
+	VC.Accent     = SelectedTheme.SliderProgress
+	VC.AccentSoft = SelectedTheme.SliderBackground
+	VC.AccentPink = SelectedTheme.SliderStroke
+	VC.AccentGlow = SelectedTheme.SliderStroke
+	VC.TextBright = SelectedTheme.TextColor
+	VC.TextMid    = Color3.new(
+		SelectedTheme.TextColor.R * 0.65,
+		SelectedTheme.TextColor.G * 0.65,
+		SelectedTheme.TextColor.B * 0.65
+	)
+	VC.BorderDim  = SelectedTheme.ElementStroke
 
 	Rayfield.Main.BackgroundColor3 = SelectedTheme.Background
 	Rayfield.Main.Topbar.BackgroundColor3 = SelectedTheme.Topbar
@@ -909,7 +970,94 @@ local function ChangeTheme(Theme)
 		for _, Element in ipairs(TabPage:GetChildren()) do
 			if Element.ClassName == "Frame" and Element.Name ~= "Placeholder" and Element.Name ~= "SectionSpacing" and Element.Name ~= "Divider" and Element.Name ~= "SectionTitle" and Element.Name ~= "SearchTitle-fsefsefesfsefesfesfThanks" then
 				Element.BackgroundColor3 = SelectedTheme.ElementBackground
-				Element.UIStroke.Color = SelectedTheme.ElementStroke
+				local elStroke = Element:FindFirstChildOfClass("UIStroke")
+				if elStroke then
+					elStroke.Color = SelectedTheme.ElementStroke
+				end
+			end
+
+			-- Re-stylage des composants VoidUI custom (ProgressBar, MultiToggle, FilteredCardGrid_Ctrl)
+			if Element.Name == "ProgressBar" then
+				Element.BackgroundColor3 = SelectedTheme.ElementBackground
+				local stroke = Element:FindFirstChildOfClass("UIStroke")
+				if stroke then stroke.Color = SelectedTheme.ElementStroke end
+				-- track = premier Frame enfant sans gradient
+				for _, child in ipairs(Element:GetChildren()) do
+					if child:IsA("Frame") and child.Name ~= "AccentBar" then
+						-- fill bar (a gradient) ou track
+						local grad = child:FindFirstChildOfClass("UIGradient")
+						if grad then
+							-- c'est le fill — gradient accent
+							grad.Color = ColorSequence.new(VC.Accent, VC.AccentPink)
+						else
+							-- c'est le track
+							child.BackgroundColor3 = SelectedTheme.Background
+						end
+					end
+				end
+			elseif Element.Name == "MultiToggle" then
+				-- rows de MultiToggle
+				for _, row in ipairs(Element:GetChildren()) do
+					if row:IsA("Frame") then
+						row.BackgroundColor3 = SelectedTheme.ElementBackground
+						local stroke = row:FindFirstChildOfClass("UIStroke")
+						if stroke then stroke.Color = SelectedTheme.ElementStroke end
+						-- pill toggle
+						for _, child in ipairs(row:GetChildren()) do
+							if child:IsA("Frame") and child.Name ~= "AccentBar" then
+								-- c'est le pill (off = BgDeep, on = Accent)
+								-- on le remet en off par défaut si transparent
+								if child.BackgroundColor3 ~= VC.Accent then
+									child.BackgroundColor3 = SelectedTheme.Background
+								else
+									child.BackgroundColor3 = VC.Accent
+								end
+							end
+						end
+					end
+				end
+			elseif Element.Name == "FilteredCardGrid_Ctrl" then
+				for _, child in ipairs(Element:GetChildren()) do
+					if child:IsA("Frame") then
+						child.BackgroundColor3 = SelectedTheme.ElementBackgroundHover
+						local stroke = child:FindFirstChildOfClass("UIStroke")
+						if stroke then stroke.Color = SelectedTheme.ElementStroke end
+					end
+				end
+			end
+		end
+	end
+
+	-- Re-stylage des barres d'accent VoidUI (UIGradient Accent→AccentPink)
+	for _, TabPage in ipairs(Elements:GetChildren()) do
+		for _, bar in ipairs(TabPage:GetDescendants()) do
+			if bar:IsA("Frame") and bar.Name == "AccentBar" then
+				local grad = bar:FindFirstChildOfClass("UIGradient")
+				if grad then
+					grad.Color = ColorSequence.new(VC.Accent, VC.AccentPink)
+				end
+			end
+		end
+	end
+
+	-- Re-stylage des toggles selon leur état actuel
+	for _, TabPage in ipairs(Elements:GetChildren()) do
+		for _, Toggle in ipairs(TabPage:GetChildren()) do
+			if Toggle:IsA("Frame") and Toggle:FindFirstChild("Switch") then
+				local Switch = Toggle.Switch
+				local Indicator = Switch:FindFirstChild("Indicator")
+				if not Indicator then continue end
+				local isEnabled = Indicator.Position.X.Offset == -20
+				Switch.BackgroundColor3 = SelectedTheme.ToggleBackground
+				if isEnabled then
+					Indicator.BackgroundColor3 = SelectedTheme.ToggleEnabled
+					Indicator.UIStroke.Color = SelectedTheme.ToggleEnabledStroke
+					Switch.UIStroke.Color = SelectedTheme.ToggleEnabledOuterStroke
+				else
+					Indicator.BackgroundColor3 = SelectedTheme.ToggleDisabled
+					Indicator.UIStroke.Color = SelectedTheme.ToggleDisabledStroke
+					Switch.UIStroke.Color = SelectedTheme.ToggleDisabledOuterStroke
+				end
 			end
 		end
 	end
@@ -1427,6 +1575,7 @@ local function Hide(notify: boolean?)
 	task.wait(0.5)
 	Main.Visible = false
 	Debounce = false
+	_showReopenBtn()
 end
 
 local function Maximise()
@@ -1437,9 +1586,7 @@ local function Maximise()
 	TweenService:Create(Main.Shadow.Image, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {ImageTransparency = 0.6}):Play()
 	TweenService:Create(Topbar.CornerRepair, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0}):Play()
 	TweenService:Create(Topbar.Divider, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0}):Play()
-	if dragBarCosmetic then
-		TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 0.7}):Play()
-	end
+	TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 0.7}):Play()
 	TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Size = useMobileSizing and UDim2.new(0, 500, 0, 275) or UDim2.new(0, 500, 0, 475)}):Play()
 	TweenService:Create(Topbar, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Size = UDim2.new(0, 500, 0, 45)}):Play()
 	TabList.Visible = true
@@ -1460,6 +1607,7 @@ end
 
 local function Unhide()
 	Debounce = true
+	_hideReopenBtn()
 	Main.Visible = true
 	TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Size = useMobileSizing and UDim2.new(0, 500, 0, 275) or UDim2.new(0, 500, 0, 475)}):Play()
 	TweenService:Create(Main.Topbar, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Size = UDim2.new(0, 500, 0, 45)}):Play()
@@ -1501,9 +1649,7 @@ local function Unhide()
 
 	setElementsVisible(true)
 
-	if dragBarCosmetic then
-		TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 0.5}):Play()
-	end
+	TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 0.5}):Play()
 
 	task.wait(0.5)
 	Minimised = false
@@ -1522,9 +1668,7 @@ local function Minimise()
 
 	setElementsVisible(false)
 
-	if dragBarCosmetic then
-		TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
-	end
+	TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
 	TweenService:Create(Topbar.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 	TweenService:Create(Main.Shadow.Image, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
 	TweenService:Create(Topbar.CornerRepair, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
@@ -2047,20 +2191,20 @@ function RayfieldLibrary:CreateWindow(Settings)
 					SaveConfiguration(ColorPickerSettings.Flag..'\n'..tostring(ColorPickerSettings.Color))
 				end
 			end
-			ColorPicker.RGB.RInput.InputBox.FocusLost:Connect(function()
+			ColorPicker.RGB.RInput.InputBox.FocusLost:connect(function()
 				rgbBoxes(ColorPicker.RGB.RInput.InputBox,"R")
 				pcall(function()ColorPickerSettings.Callback(Color3.fromHSV(h,s,v))end)
 			end)
-			ColorPicker.RGB.GInput.InputBox.FocusLost:Connect(function()
+			ColorPicker.RGB.GInput.InputBox.FocusLost:connect(function()
 				rgbBoxes(ColorPicker.RGB.GInput.InputBox,"G")
 				pcall(function()ColorPickerSettings.Callback(Color3.fromHSV(h,s,v))end)
 			end)
-			ColorPicker.RGB.BInput.InputBox.FocusLost:Connect(function()
+			ColorPicker.RGB.BInput.InputBox.FocusLost:connect(function()
 				rgbBoxes(ColorPicker.RGB.BInput.InputBox,"B")
 				pcall(function()ColorPickerSettings.Callback(Color3.fromHSV(h,s,v))end)
 			end)
 
-			local colorPickerRenderConnection = RunService.RenderStepped:Connect(function()
+			local colorPickerRenderConnection = RunService.RenderStepped:connect(function()
 				if mainDragging then
 					local localX = math.clamp(mouse.X-Main.AbsolutePosition.X,0,Main.AbsoluteSize.X)
 					local localY = math.clamp(mouse.Y-Main.AbsolutePosition.Y,0,Main.AbsoluteSize.Y)
@@ -3249,23 +3393,23 @@ function RayfieldLibrary:CreateWindow(Settings)
 				tostring(curVal) .. suffix,
 				UDim2.new(0, 55, 0, 22),
 				UDim2.new(1, -62, 0, 4),
-				SelectedTheme.SliderProgress, 12, Enum.Font.GothamBold,
+				VC.Accent, 12, Enum.Font.GothamBold,
 				Enum.TextXAlignment.Right
 			)
 
 			local track = VMakeFrame(Container,
 				UDim2.new(1, -20, 0, 6),
 				UDim2.new(0, 10, 1, -12),
-				SelectedTheme.SecondaryElementBackground, 0
+				VC.BgDeep, 0
 			)
 			VCorner(3, track)
 
 			local fill = VMakeFrame(track,
 				UDim2.new(curVal / maxVal, 0, 1, 0),
-				nil, Color3.fromRGB(255,255,255), 0
+				nil, VC.White, 0
 			)
 			VCorner(3, fill)
-			VGradient(SelectedTheme.SliderProgress, SelectedTheme.SliderStroke, fill, 0)
+			VGradient(VC.Accent, VC.AccentPink, fill, 0)
 
 			return {
 				SetValue = function(_, v)
@@ -3297,7 +3441,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 			Container.Size = UDim2.new(1, 0, 0, totalH)
 			Container.Parent = TabPage
 
-			local grid = VMakeFrame(Container, UDim2.new(1, 0, 1, 0), nil, Color3.fromRGB(0,0,0), 1)
+			local grid = VMakeFrame(Container, UDim2.new(1, 0, 1, 0), nil, VC.Black, 1)
 
 			local gridLayout = Instance.new("UIGridLayout")
 			gridLayout.CellSize      = UDim2.new(1/cols, -(gap * (cols + 1) / cols), 0, cardH)
@@ -3308,11 +3452,11 @@ function RayfieldLibrary:CreateWindow(Settings)
 			VPad(gap, gap, gap, gap, grid)
 
 			for i, item in ipairs(items) do
-				local card = VMakeFrame(grid, UDim2.new(0, 1, 0, 1), nil, SelectedTheme.ElementBackground, 0)
+				local card = VMakeFrame(grid, UDim2.new(0, 1, 0, 1), nil, VC.BgMid, 0)
 				card.LayoutOrder = i
 				VCorner(10, card)
-				local cardStroke = VStroke(1, SelectedTheme.ElementStroke, card)
-				VGradient(SelectedTheme.ElementBackground, SelectedTheme.ElementBackgroundHover, card, 90)
+				local cardStroke = VStroke(1, VC.BorderDim, card)
+				VGradient(VC.BgMid, VC.BgLight, card, 90)
 
 				local img = Instance.new("ImageLabel")
 				img.Size                   = UDim2.new(0.72, 0, 0, 68)
@@ -3326,7 +3470,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 					item.Name or "",
 					UDim2.new(1, -6, 0, 18),
 					UDim2.new(0, 3, 1, -22),
-					SelectedTheme.PlaceholderColor, 10, Enum.Font.GothamBold,
+					VC.TextMid, 10, Enum.Font.GothamBold,
 					Enum.TextXAlignment.Center
 				)
 				nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
@@ -3334,12 +3478,12 @@ function RayfieldLibrary:CreateWindow(Settings)
 				local checkBg = VMakeFrame(card,
 					UDim2.new(0, 22, 0, 22),
 					UDim2.new(1, -26, 0, 4),
-					SelectedTheme.SliderProgress, 1
+					VC.Accent, 1
 				)
 				VCorner(11, checkBg)
 				local checkLabel = VMakeLabel(checkBg, "✓",
 					UDim2.new(1, 0, 1, 0), nil,
-					Color3.fromRGB(255,255,255), 12, Enum.Font.GothamBold,
+					VC.White, 12, Enum.Font.GothamBold,
 					Enum.TextXAlignment.Center
 				)
 				checkLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -3356,31 +3500,31 @@ function RayfieldLibrary:CreateWindow(Settings)
 					isSelected = v
 					if v then
 						selected[item.Name] = true
-						VTween(cardStroke,  { Color = SelectedTheme.SliderProgress, Thickness = 2 },    0.2)
-						VTween(card,        { BackgroundColor3 = SelectedTheme.ElementBackgroundHoverer },      0.2)
+						VTween(cardStroke,  { Color = VC.Accent, Thickness = 2 },    0.2)
+						VTween(card,        { BackgroundColor3 = VC.BgLighter },      0.2)
 						VTween(checkBg,     { BackgroundTransparency = 0 },           0.2)
-						VTween(nameLabel,   { TextColor3 = SelectedTheme.TextColor },           0.2)
+						VTween(nameLabel,   { TextColor3 = VC.TextBright },           0.2)
 						VTween(img,         { ImageTransparency = 0 },                0.1)
 					else
 						selected[item.Name] = nil
-						VTween(cardStroke,  { Color = SelectedTheme.ElementStroke, Thickness = 1 }, 0.2)
-						VTween(card,        { BackgroundColor3 = SelectedTheme.ElementBackground },          0.2)
+						VTween(cardStroke,  { Color = VC.BorderDim, Thickness = 1 }, 0.2)
+						VTween(card,        { BackgroundColor3 = VC.BgMid },          0.2)
 						VTween(checkBg,     { BackgroundTransparency = 1 },           0.2)
-						VTween(nameLabel,   { TextColor3 = SelectedTheme.PlaceholderColor },              0.2)
+						VTween(nameLabel,   { TextColor3 = VC.TextMid },              0.2)
 					end
 					callback(selected)
 				end
 
 				clickZone.MouseEnter:Connect(function()
 					if not isSelected then
-						VTween(card,       { BackgroundColor3 = SelectedTheme.ElementBackgroundHover },  0.12)
-						VTween(cardStroke, { Color = SelectedTheme.SliderStroke },          0.12)
+						VTween(card,       { BackgroundColor3 = VC.BgLight },  0.12)
+						VTween(cardStroke, { Color = VC.AccentGlow },          0.12)
 					end
 				end)
 				clickZone.MouseLeave:Connect(function()
 					if not isSelected then
-						VTween(card,       { BackgroundColor3 = SelectedTheme.ElementBackground },    0.12)
-						VTween(cardStroke, { Color = SelectedTheme.ElementStroke },           0.12)
+						VTween(card,       { BackgroundColor3 = VC.BgMid },    0.12)
+						VTween(cardStroke, { Color = VC.BorderDim },           0.12)
 					end
 				end)
 				clickZone.MouseButton1Click:Connect(function()
@@ -3421,29 +3565,29 @@ function RayfieldLibrary:CreateWindow(Settings)
 			local dropBg = VMakeFrame(ctrlContainer,
 				UDim2.new(1, 0, 0, 34),
 				UDim2.new(0, 0, 0, 0),
-				SelectedTheme.ElementBackgroundHover, 0
+				VC.BgLight, 0
 			)
 			VCorner(8, dropBg)
-			VStroke(1, SelectedTheme.ElementStroke, dropBg)
+			VStroke(1, VC.BorderDim, dropBg)
 			VMakeAccentBar(dropBg)
 
 			VMakeLabel(dropBg, "Groupe",
 				UDim2.new(0.45, 0, 1, 0),
 				UDim2.new(0, 14, 0, 0),
-				SelectedTheme.PlaceholderColor, 11, Enum.Font.Gotham
+				VC.TextMid, 11, Enum.Font.Gotham
 			)
 
 			local selLabel = VMakeLabel(dropBg, currentGroup,
 				UDim2.new(0.42, -28, 1, 0),
 				UDim2.new(0.45, 0, 0, 0),
-				SelectedTheme.TextColor, 12, Enum.Font.GothamBold,
+				VC.TextBright, 12, Enum.Font.GothamBold,
 				Enum.TextXAlignment.Right
 			)
 
 			local dropArrow = VMakeLabel(dropBg, "▾",
 				UDim2.new(0, 16, 1, 0),
 				UDim2.new(1, -20, 0, 0),
-				SelectedTheme.SliderProgress, 12, Enum.Font.GothamBold,
+				VC.Accent, 12, Enum.Font.GothamBold,
 				Enum.TextXAlignment.Center
 			)
 
@@ -3451,13 +3595,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 			local dropList = VMakeFrame(TabPage,
 				UDim2.new(0, 0, 0, dropH),
 				UDim2.new(0, 0, 0, 0),
-				SelectedTheme.ElementBackground, 0
+				VC.BgMid, 0
 			)
 			dropList.Visible          = false
 			dropList.ZIndex           = 60
 			dropList.ClipsDescendants = false
 			VCorner(8, dropList)
-			VStroke(1, SelectedTheme.SliderProgress, dropList)
+			VStroke(1, VC.Accent, dropList)
 
 			local dropLayout = Instance.new("UIListLayout")
 			dropLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -3517,7 +3661,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 				local totalH2 = rows * (cardH + gap) + gap
 				gridContainer.Size = UDim2.new(1, 0, 0, totalH2)
 
-				local gridFrame = VMakeFrame(gridContainer, UDim2.new(1, 0, 1, 0), nil, Color3.fromRGB(0,0,0), 1)
+				local gridFrame = VMakeFrame(gridContainer, UDim2.new(1, 0, 1, 0), nil, VC.Black, 1)
 
 				local gridLayout = Instance.new("UIGridLayout")
 				gridLayout.CellSize      = UDim2.new(1/cols, -(gap * (cols + 1) / cols), 0, cardH)
@@ -3528,11 +3672,11 @@ function RayfieldLibrary:CreateWindow(Settings)
 				VPad(gap, gap, gap, gap, gridFrame)
 
 				for i, item in ipairs(items) do
-					local card = VMakeFrame(gridFrame, UDim2.new(0,1,0,1), nil, SelectedTheme.ElementBackground, 0)
+					local card = VMakeFrame(gridFrame, UDim2.new(0,1,0,1), nil, VC.BgMid, 0)
 					card.LayoutOrder = i
 					VCorner(10, card)
-					local cardStroke = VStroke(1, SelectedTheme.ElementStroke, card)
-					VGradient(SelectedTheme.ElementBackground, SelectedTheme.ElementBackgroundHover, card, 90)
+					local cardStroke = VStroke(1, VC.BorderDim, card)
+					VGradient(VC.BgMid, VC.BgLight, card, 90)
 
 					local img = Instance.new("ImageLabel")
 					img.Size                   = UDim2.new(0.72, 0, 0, 68)
@@ -3546,7 +3690,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 						item.Name or "",
 						UDim2.new(1, -6, 0, 18),
 						UDim2.new(0, 3, 1, -22),
-						SelectedTheme.PlaceholderColor, 10, Enum.Font.GothamBold,
+						VC.TextMid, 10, Enum.Font.GothamBold,
 						Enum.TextXAlignment.Center
 					)
 					nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
@@ -3554,12 +3698,12 @@ function RayfieldLibrary:CreateWindow(Settings)
 					local checkBg = VMakeFrame(card,
 						UDim2.new(0, 22, 0, 22),
 						UDim2.new(1, -26, 0, 4),
-						SelectedTheme.SliderProgress, 1
+						VC.Accent, 1
 					)
 					VCorner(11, checkBg)
 					local checkLabel = VMakeLabel(checkBg, "✓",
 						UDim2.new(1,0,1,0), nil,
-						Color3.fromRGB(255,255,255), 12, Enum.Font.GothamBold,
+						VC.White, 12, Enum.Font.GothamBold,
 						Enum.TextXAlignment.Center
 					)
 					checkLabel.TextYAlignment = Enum.TextYAlignment.Center
@@ -3568,24 +3712,24 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 					local function ApplyVisual(v)
 						if v then
-							VTween(cardStroke,  { Color = SelectedTheme.SliderProgress, Thickness = 2 },    0.15)
-							VTween(card,        { BackgroundColor3 = SelectedTheme.ElementBackgroundHoverer },      0.15)
+							VTween(cardStroke,  { Color = VC.Accent, Thickness = 2 },    0.15)
+							VTween(card,        { BackgroundColor3 = VC.BgLighter },      0.15)
 							VTween(checkBg,     { BackgroundTransparency = 0 },           0.15)
-							VTween(nameLabel,   { TextColor3 = SelectedTheme.TextColor },           0.15)
+							VTween(nameLabel,   { TextColor3 = VC.TextBright },           0.15)
 						else
-							VTween(cardStroke,  { Color = SelectedTheme.ElementStroke, Thickness = 1 }, 0.15)
-							VTween(card,        { BackgroundColor3 = SelectedTheme.ElementBackground },          0.15)
+							VTween(cardStroke,  { Color = VC.BorderDim, Thickness = 1 }, 0.15)
+							VTween(card,        { BackgroundColor3 = VC.BgMid },          0.15)
 							VTween(checkBg,     { BackgroundTransparency = 1 },           0.15)
-							VTween(nameLabel,   { TextColor3 = SelectedTheme.PlaceholderColor },              0.15)
+							VTween(nameLabel,   { TextColor3 = VC.TextMid },              0.15)
 						end
 					end
 
 					if isSelected then
-						cardStroke.Color               = SelectedTheme.SliderProgress
+						cardStroke.Color               = VC.Accent
 						cardStroke.Thickness           = 2
-						card.BackgroundColor3          = SelectedTheme.ElementBackgroundHoverer
+						card.BackgroundColor3          = VC.BgLighter
 						checkBg.BackgroundTransparency = 0
-						nameLabel.TextColor3           = SelectedTheme.TextColor
+						nameLabel.TextColor3           = VC.TextBright
 					end
 
 					local clickZone = Instance.new("TextButton")
@@ -3596,14 +3740,14 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 					clickZone.MouseEnter:Connect(function()
 						if not isSelected then
-							VTween(card,       { BackgroundColor3 = SelectedTheme.ElementBackgroundHover }, 0.12)
-							VTween(cardStroke, { Color = SelectedTheme.SliderStroke },         0.12)
+							VTween(card,       { BackgroundColor3 = VC.BgLight }, 0.12)
+							VTween(cardStroke, { Color = VC.AccentGlow },         0.12)
 						end
 					end)
 					clickZone.MouseLeave:Connect(function()
 						if not isSelected then
-							VTween(card,       { BackgroundColor3 = SelectedTheme.ElementBackground },   0.12)
-							VTween(cardStroke, { Color = SelectedTheme.ElementStroke },          0.12)
+							VTween(card,       { BackgroundColor3 = VC.BgMid },   0.12)
+							VTween(cardStroke, { Color = VC.BorderDim },          0.12)
 						end
 					end)
 					clickZone.MouseButton1Click:Connect(function()
@@ -3623,7 +3767,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 				optBtn.BackgroundTransparency = 1
 				optBtn.BorderSizePixel        = 0
 				optBtn.Text                   = label
-				optBtn.TextColor3             = SelectedTheme.PlaceholderColor
+				optBtn.TextColor3             = VC.TextMid
 				optBtn.TextSize               = 12
 				optBtn.Font                   = Enum.Font.Gotham
 				optBtn.ZIndex                 = 61
@@ -3631,12 +3775,12 @@ function RayfieldLibrary:CreateWindow(Settings)
 				optBtn.Parent                 = dropList
 
 				optBtn.MouseEnter:Connect(function()
-					VTween(optBtn, { TextColor3 = SelectedTheme.TextColor }, 0.1)
-					optBtn.BackgroundColor3       = SelectedTheme.ElementBackgroundHover
+					VTween(optBtn, { TextColor3 = VC.TextBright }, 0.1)
+					optBtn.BackgroundColor3       = VC.BgLight
 					optBtn.BackgroundTransparency = 0
 				end)
 				optBtn.MouseLeave:Connect(function()
-					VTween(optBtn, { TextColor3 = SelectedTheme.PlaceholderColor }, 0.1)
+					VTween(optBtn, { TextColor3 = VC.TextMid }, 0.1)
 					optBtn.BackgroundTransparency = 1
 				end)
 				optBtn.MouseButton1Click:Connect(function()
@@ -3706,40 +3850,31 @@ function RayfieldLibrary:CreateWindow(Settings)
 			local selected = {}
 			local rowH     = 30
 
-			-- Container principal — AutomaticSize pour s'adapter au UIListLayout interne
+			local totalH = 24 + #options * (rowH + 5)
+
 			local Container = Instance.new("Frame")
 			Container.Name = "MultiToggle"
 			Container.BackgroundTransparency = 1
-			Container.Size = UDim2.new(1, 0, 0, 0)
-			Container.AutomaticSize = Enum.AutomaticSize.Y
+			Container.Size = UDim2.new(1, 0, 0, totalH)
 			Container:SetAttribute("BackgroundTransparencyTarget", 1)
 			Container:SetAttribute("UIStrokeTransparencyTarget", 1)
 			Container:SetAttribute("TitleTextTransparencyTarget", 1)
 			Container.Parent = TabPage
 
-			-- Label titre
-			local titleLabel = VMakeLabel(Container, cfg.Label or "Multi",
-				UDim2.new(1, 0, 0, 22), UDim2.new(0, 0, 0, 0),
+			VMakeLabel(Container, cfg.Label or "Multi",
+				UDim2.new(1, 0, 0, 22), nil,
 				SelectedTheme.TextColor, 11, Enum.Font.GothamBold
 			)
-			titleLabel.LayoutOrder = 0
-
-			-- Layout interne vertical
-			local innerLayout = Instance.new("UIListLayout")
-			innerLayout.SortOrder = Enum.SortOrder.LayoutOrder
-			innerLayout.Padding = UDim.new(0, 5)
-			innerLayout.Parent = Container
 
 			for i, opt in ipairs(options) do
 				local state = false
+				local yPos  = 24 + (i - 1) * (rowH + 5)
 
-				local row = Instance.new("Frame")
-				row.Name = "Row_" .. opt
-				row.Size = UDim2.new(1, 0, 0, rowH)
-				row.BackgroundColor3 = SelectedTheme.ElementBackground
-				row.BorderSizePixel = 0
-				row.LayoutOrder = i
-				row.Parent = Container
+				local row = VMakeFrame(Container,
+					UDim2.new(1, 0, 0, rowH),
+					UDim2.new(0, 0, 0, yPos),
+					SelectedTheme.ElementBackground, 0
+				)
 				VCorner(8, row)
 				VStroke(1, SelectedTheme.ElementStroke, row)
 				VMakeAccentBar(row)
@@ -3753,14 +3888,14 @@ function RayfieldLibrary:CreateWindow(Settings)
 				local pill = VMakeFrame(row,
 					UDim2.new(0, 40, 0, 20),
 					UDim2.new(1, -48, 0.5, -10),
-					SelectedTheme.SecondaryElementBackground, 0
+					VC.BgDeep, 0
 				)
 				VCorner(10, pill)
 
 				local knob = VMakeFrame(pill,
 					UDim2.new(0, 14, 0, 14),
 					UDim2.new(0, 2, 0.5, -7),
-					Color3.fromRGB(255,255,255), 0
+					VC.White, 0
 				)
 				VCorner(7, knob)
 
@@ -3774,11 +3909,11 @@ function RayfieldLibrary:CreateWindow(Settings)
 					state = not state
 					if state then
 						selected[opt] = true
-						VTween(pill, { BackgroundColor3 = SelectedTheme.SliderProgress }, 0.18)
+						VTween(pill, { BackgroundColor3 = VC.Accent }, 0.18)
 						VTween(knob, { Position = UDim2.new(1, -16, 0.5, -7) }, 0.18)
 					else
 						selected[opt] = nil
-						VTween(pill, { BackgroundColor3 = SelectedTheme.SecondaryElementBackground }, 0.18)
+						VTween(pill, { BackgroundColor3 = VC.BgDeep }, 0.18)
 						VTween(knob, { Position = UDim2.new(0, 2, 0.5, -7) }, 0.18)
 					end
 					callback(selected)
@@ -3788,29 +3923,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 			return {
 				GetValue = function() return selected end,
 			}
-		end
-
-		-- ── CLEAR — détruit tout le contenu du tab et remet l'ordre à zéro ──────
-		--  Utile pour repeupler dynamiquement (ex : liste de plantes qui change).
-		--  Appelle Tab:Clear() puis recrée tes éléments depuis zéro.
-		function Tab:Clear()
-			for _, child in ipairs(TabPage:GetChildren()) do
-				if child.ClassName == "Frame"
-					and child.Name ~= "Placeholder"
-					and child.Name ~= "SectionSpacing"
-				then
-					child:Destroy()
-				end
-			end
-			-- Remet le canvas à zéro
-			task.defer(function()
-				local layout = TabPage:FindFirstChildOfClass("UIListLayout")
-				if layout then
-					TabPage.CanvasSize = UDim2.new(0, 0, 0,
-						layout.AbsoluteContentSize.Y + 20
-					)
-				end
-			end)
 		end
 
 		return Tab
@@ -3874,73 +3986,53 @@ function RayfieldLibrary:CreateWindow(Settings)
 		end
 	end
 
-	-- ════════════════════════════════════════════════════════════════════════════
-	--  SETTINGS PAGE — créée automatiquement, accessible via le bouton ⚙
-	-- ════════════════════════════════════════════════════════════════════════════
-	do
-		local SettingsTab = Window:CreateTab("Rayfield Settings", nil, true)
+	-- ════════════════════════════════════════════════════════════════════════
+	--  PAGE SETTINGS — créée comme tab caché (Ext=true), nom = 'Rayfield Settings'
+	-- ════════════════════════════════════════════════════════════════════════
+	local SettingsTab = Window:CreateTab('Rayfield Settings', 0, true)
 
-		-- Section : Thème
-		SettingsTab:CreateSection("Apparence")
+	SettingsTab:CreateSection('Apparence')
 
-		local themeNames = {}
-		for name in pairs(RayfieldLibrary.Theme) do
-			table.insert(themeNames, name)
-		end
-		table.sort(themeNames)
-
-		local currentThemeName = typeof(Settings.Theme) == "string" and Settings.Theme or "Default"
-
-		SettingsTab:CreateDropdown({
-			Name    = "Thème",
-			Options = themeNames,
-			CurrentOption = currentThemeName,
-			MultipleOptions = false,
-			Callback = function(selected)
-				local name = type(selected) == "table" and selected[1] or selected
-				if name and RayfieldLibrary.Theme[name] then
-					pcall(ChangeTheme, name)
-					currentThemeName = name
-				end
-			end,
-		})
-
-		-- Section : Configuration
-		SettingsTab:CreateSection("Configuration")
-
-		if CEnabled then
-			SettingsTab:CreateButton({
-				Name = "Recharger la config",
-				Callback = function()
-					RayfieldLibrary:LoadConfiguration()
-					RayfieldLibrary:Notify({Title = "Configuration", Content = "Configuration rechargée.", Duration = 3})
-				end,
-			})
-
-			SettingsTab:CreateButton({
-				Name = "Réinitialiser la config",
-				Callback = function()
-					if CFileName and writefile then
-						pcall(writefile, ConfigurationFolder .. "/" .. CFileName .. ConfigurationExtension, "{}")
-						RayfieldLibrary:Notify({Title = "Configuration", Content = "Config réinitialisée. Relance le script.", Duration = 4})
-					end
-				end,
-			})
-		else
-			SettingsTab:CreateParagraph({
-				Title = "Sauvegarde désactivée",
-				Content = "ConfigurationSaving n'est pas activé pour ce script.",
-			})
-		end
-
-		-- Section : Infos
-		SettingsTab:CreateSection("Infos")
-
-		SettingsTab:CreateParagraph({
-			Title = "Version",
-			Content = "RayVoid — " .. Release,
-		})
+	local themeNames = {}
+	for name, _ in pairs(RayfieldLibrary.Theme) do
+		table.insert(themeNames, name)
 	end
+	table.sort(themeNames)
+
+	local currentThemeName = 'Default'
+	for name, t in pairs(RayfieldLibrary.Theme) do
+		if t == SelectedTheme then currentThemeName = name break end
+	end
+
+	SettingsTab:CreateDropdown({
+		Name = 'Thème',
+		Options = themeNames,
+		CurrentOption = {currentThemeName},
+		Flag = 'SettingsTheme',
+		Callback = function(selected)
+			local name = selected[1] or selected
+			local ok = pcall(ChangeTheme, name)
+			if not ok then
+				RayfieldLibrary:Notify({Title = 'Thème introuvable', Content = 'Impossible de charger le thème "'..tostring(name)..'".'})
+			end
+		end,
+	})
+
+	SettingsTab:CreateSection('Raccourci')
+
+	SettingsTab:CreateParagraph({
+		Title = 'Touche pour afficher/cacher',
+		Content = 'Touche active : ' .. tostring(toggleKeybind) .. '\n(Modifiable via ToggleUIKeybind dans CreateWindow)',
+	})
+
+	SettingsTab:CreateSection('Informations')
+
+	SettingsTab:CreateParagraph({
+		Title = 'VoidUI',
+		Content = 'Interface by AKkiwi — version actuelle.\nTous mes scripts sont gratuits et sans key.',
+	})
+
+
 
 	return Window
 end
@@ -3973,6 +4065,7 @@ function RayfieldLibrary:Destroy()
 	for _, connection in keybindConnections do
 		connection:Disconnect()
 	end
+	pcall(function() _reopenSg:Destroy() end)
 	Rayfield:Destroy()
 end
 
@@ -4042,26 +4135,43 @@ Topbar.Search.MouseButton1Click:Connect(function()
 end)
 
 if Topbar:FindFirstChild('Settings') then
-	Topbar.Settings.MouseButton1Click:Connect(function()
-		local settingsPage = Elements:FindFirstChild('Rayfield Settings')
-		if not settingsPage then
-			RayfieldLibrary:Notify({Title = "Settings", Content = "No settings page available.", Duration = 3})
-			return
-		end
-		task.spawn(function()
-			for _, OtherTabButton in ipairs(TabList:GetChildren()) do
-				if OtherTabButton.Name ~= "Template" and OtherTabButton.ClassName == "Frame" and OtherTabButton.Name ~= "Placeholder" then
-					TweenService:Create(OtherTabButton, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.TabBackground}):Play()
-					TweenService:Create(OtherTabButton.Title, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {TextColor3 = SelectedTheme.TabTextColor}):Play()
-					TweenService:Create(OtherTabButton.Image, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {ImageColor3 = SelectedTheme.TabTextColor}):Play()
-					TweenService:Create(OtherTabButton, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0.7}):Play()
-					TweenService:Create(OtherTabButton.Title, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {TextTransparency = 0.2}):Play()
-					TweenService:Create(OtherTabButton.Image, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {ImageTransparency = 0.2}):Play()
-					TweenService:Create(OtherTabButton.UIStroke, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {Transparency = 0.5}):Play()
-				end
-			end
+	local _settingsOpen = false
+	local _lastPage = nil
 
-			Elements.UIPageLayout:JumpTo(settingsPage)
+	Topbar.Settings.MouseButton1Click:Connect(function()
+		task.spawn(function()
+			local settingsPage = Elements:FindFirstChild('Rayfield Settings')
+			if not settingsPage then return end
+
+			if _settingsOpen then
+				-- Retour au tab précédent
+				_settingsOpen = false
+				TweenService:Create(Topbar.Settings, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageColor3 = SelectedTheme.TextColor}):Play()
+				if _lastPage and _lastPage.Parent then
+					Elements.UIPageLayout.Animated = false
+					Elements.UIPageLayout:JumpTo(_lastPage)
+					Elements.UIPageLayout.Animated = true
+				end
+			else
+				-- Ouverture settings
+				_settingsOpen = true
+				_lastPage = Elements.UIPageLayout.CurrentPage
+				TweenService:Create(Topbar.Settings, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageColor3 = SelectedTheme.SliderProgress}):Play()
+
+				for _, OtherTabButton in ipairs(TabList:GetChildren()) do
+					if OtherTabButton.Name ~= "Template" and OtherTabButton.ClassName == "Frame" and OtherTabButton.Name ~= "Placeholder" then
+						TweenService:Create(OtherTabButton, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.TabBackground}):Play()
+						TweenService:Create(OtherTabButton.Title, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {TextColor3 = SelectedTheme.TabTextColor}):Play()
+						TweenService:Create(OtherTabButton.Image, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {ImageColor3 = SelectedTheme.TabTextColor}):Play()
+						TweenService:Create(OtherTabButton, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0.7}):Play()
+						TweenService:Create(OtherTabButton.Title, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {TextTransparency = 0.2}):Play()
+						TweenService:Create(OtherTabButton.Image, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {ImageTransparency = 0.2}):Play()
+						TweenService:Create(OtherTabButton.UIStroke, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {Transparency = 0.5}):Play()
+					end
+				end
+
+				Elements.UIPageLayout:JumpTo(settingsPage)
+			end
 		end)
 	end)
 
@@ -4069,7 +4179,15 @@ end
 
 
 Topbar.Hide.MouseButton1Click:Connect(function()
-	setVisibility(not Hidden, not useMobileSizing)
+	setVisibility(Hidden, not useMobileSizing)
+end)
+
+-- Connect du bouton flottant (ici car Unhide est déclarée au-dessus)
+_reopenBtn.MouseButton1Click:Connect(function()
+	if Hidden and not Debounce then
+		Hidden = false
+		task.spawn(Unhide)
+	end
 end)
 
 hideHotkeyConnection = UserInputService.InputBegan:Connect(function(input, processed)
@@ -4412,14 +4530,14 @@ function RayfieldLibrary:CreateFloatingButton(cfg)
 	local btn = Instance.new("TextButton")
 	btn.Size             = btnSize
 	btn.Position         = pos
-	btn.BackgroundColor3 = SelectedTheme.ElementBackground
+	btn.BackgroundColor3 = VC.BgMid
 	btn.BorderSizePixel  = 0
 	btn.Text             = ""
 	btn.ZIndex           = 10
 	btn.Parent           = sg
 	VCorner(14, btn)
-	VStroke(4, Color3.fromRGB(0,0,0), btn)
-	local innerStroke = VStroke(1.5, SelectedTheme.SliderProgress, btn)
+	VStroke(4, VC.Black, btn)
+	local innerStroke = VStroke(1.5, VC.Accent, btn)
 
 	if hasIcon then
 		local img = Instance.new("ImageLabel")
@@ -4436,7 +4554,7 @@ function RayfieldLibrary:CreateFloatingButton(cfg)
 		lbl.Position               = UDim2.new(0, 4, 0, 4)
 		lbl.BackgroundTransparency = 1
 		lbl.Text                   = text
-		lbl.TextColor3             = SelectedTheme.TextColor
+		lbl.TextColor3             = VC.TextBright
 		lbl.TextSize               = 12
 		lbl.Font                   = Enum.Font.GothamBold
 		lbl.TextWrapped            = true
@@ -4445,18 +4563,18 @@ function RayfieldLibrary:CreateFloatingButton(cfg)
 	end
 
 	btn.MouseEnter:Connect(function()
-		VTween(btn, { BackgroundColor3 = SelectedTheme.ElementBackgroundHover }, 0.12)
-		VTween(innerStroke, { Color = SelectedTheme.SliderStroke }, 0.12)
+		VTween(btn, { BackgroundColor3 = VC.BgLight }, 0.12)
+		VTween(innerStroke, { Color = VC.AccentGlow }, 0.12)
 	end)
 	btn.MouseLeave:Connect(function()
-		VTween(btn, { BackgroundColor3 = SelectedTheme.ElementBackground }, 0.12)
-		VTween(innerStroke, { Color = SelectedTheme.SliderProgress }, 0.12)
+		VTween(btn, { BackgroundColor3 = VC.BgMid }, 0.12)
+		VTween(innerStroke, { Color = VC.Accent }, 0.12)
 	end)
 	btn.MouseButton1Down:Connect(function()
-		VTween(btn, { BackgroundColor3 = SelectedTheme.SliderBackground }, 0.08)
+		VTween(btn, { BackgroundColor3 = VC.AccentSoft }, 0.08)
 	end)
 	btn.MouseButton1Up:Connect(function()
-		VTween(btn, { BackgroundColor3 = SelectedTheme.ElementBackground }, 0.12)
+		VTween(btn, { BackgroundColor3 = VC.BgMid }, 0.12)
 	end)
 
 	local dragging  = false
@@ -4532,21 +4650,14 @@ function RayfieldLibrary:CreateOverlay(cfg)
 	local ok = pcall(function() sg.Parent = CoreGui end)
 	if not ok then sg.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
 
-	-- Outer frame (bordure noire épaisse) + inner frame (fond + bordure violette)
-	local outerFrame = VMakeFrame(sg,
-		UDim2.new(0, minWidth + 8, 0, totalH + 8),
-		UDim2.new(pos.X.Scale, pos.X.Offset - 4, pos.Y.Scale, pos.Y.Offset - 4),
-		Color3.fromRGB(0,0,0), 0
-	)
-	VCorner(12, outerFrame)
-
-	local container = VMakeFrame(outerFrame,
-		UDim2.new(1, -8, 1, -8),
-		UDim2.new(0, 4, 0, 4),
-		SelectedTheme.ElementBackground, 0
+	local container = VMakeFrame(sg,
+		UDim2.new(0, minWidth, 0, totalH),
+		pos,
+		VC.BgMid, 0
 	)
 	VCorner(10, container)
-	VStroke(1.5, SelectedTheme.SliderProgress, container)
+	VStroke(4, VC.Black, container)
+	VStroke(1.5, VC.Accent, container)
 
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -4588,7 +4699,7 @@ function RayfieldLibrary:CreateOverlay(cfg)
 			local lbl = VMakeLabel(container,
 				item.Text or "",
 				UDim2.new(1, 0, 0, 20), nil,
-				item.Color or SelectedTheme.TextColor,
+				item.Color or VC.TextBright,
 				item.TextSize or 12,
 				item.Bold and Enum.Font.GothamBold or Enum.Font.Gotham
 			)
@@ -4608,17 +4719,17 @@ function RayfieldLibrary:CreateOverlay(cfg)
 
 		elseif item.Type == "imagebutton" then
 			local btnH   = (item.Height or 44) + (item.Label and 20 or 0)
-			local ibWrap = VMakeFrame(container, UDim2.new(1,0,0,btnH), nil, Color3.fromRGB(0,0,0), 1)
+			local ibWrap = VMakeFrame(container, UDim2.new(1,0,0,btnH), nil, VC.Black, 1)
 			ibWrap.LayoutOrder = order
 			local ibBtn = Instance.new("TextButton")
 			ibBtn.Size             = UDim2.new(1, 0, 0, item.Height or 44)
-			ibBtn.BackgroundColor3 = SelectedTheme.ElementBackgroundHover
+			ibBtn.BackgroundColor3 = VC.BgLight
 			ibBtn.BorderSizePixel  = 0
 			ibBtn.Text             = ""
 			ibBtn.ZIndex           = 5
 			ibBtn.Parent           = ibWrap
 			VCorner(8, ibBtn)
-			VStroke(1, SelectedTheme.ElementStroke, ibBtn)
+			VStroke(1, VC.BorderDim, ibBtn)
 			local ibImg = Instance.new("ImageLabel")
 			ibImg.Size                   = UDim2.new(0.7, 0, 0.8, 0)
 			ibImg.Position               = UDim2.new(0.15, 0, 0.1, 0)
@@ -4631,29 +4742,27 @@ function RayfieldLibrary:CreateOverlay(cfg)
 				VMakeLabel(ibWrap, item.Label,
 					UDim2.new(1,0,0,18),
 					UDim2.new(0,0,0,item.Height or 44),
-					item.Color or SelectedTheme.PlaceholderColor,
+					item.Color or VC.TextMid,
 					10, Enum.Font.GothamBold,
 					Enum.TextXAlignment.Center
 				)
 			end
-			ibBtn.MouseEnter:Connect(function()    VTween(ibBtn, { BackgroundColor3 = SelectedTheme.ElementBackgroundHoverer }, 0.1) end)
-			ibBtn.MouseLeave:Connect(function()    VTween(ibBtn, { BackgroundColor3 = SelectedTheme.ElementBackgroundHover   }, 0.1) end)
-			ibBtn.MouseButton1Down:Connect(function() VTween(ibBtn, { BackgroundColor3 = SelectedTheme.SliderBackground }, 0.08) end)
-			ibBtn.MouseButton1Up:Connect(function()   VTween(ibBtn, { BackgroundColor3 = SelectedTheme.ElementBackgroundHover   }, 0.1)  end)
+			ibBtn.MouseEnter:Connect(function()    VTween(ibBtn, { BackgroundColor3 = VC.BgLighter }, 0.1) end)
+			ibBtn.MouseLeave:Connect(function()    VTween(ibBtn, { BackgroundColor3 = VC.BgLight   }, 0.1) end)
+			ibBtn.MouseButton1Down:Connect(function() VTween(ibBtn, { BackgroundColor3 = VC.AccentSoft }, 0.08) end)
+			ibBtn.MouseButton1Up:Connect(function()   VTween(ibBtn, { BackgroundColor3 = VC.BgLight   }, 0.1)  end)
 			ibBtn.MouseButton1Click:Connect(function() if item.Callback then item.Callback() end end)
 			if item.Id then elements[item.Id] = ibImg end
 
 		elseif item.Type == "separator" then
-			local sep = VMakeFrame(container, UDim2.new(1,0,0,1), nil, Color3.fromRGB(255,255,255), 0)
+			local sep = VMakeFrame(container, UDim2.new(1,0,0,1), nil, VC.White, 0)
 			sep.LayoutOrder = order
-			VGradient(SelectedTheme.SliderProgress, SelectedTheme.SliderStroke, sep, 0)
+			VGradient(VC.Accent, VC.AccentPink, sep, 0)
 		end
 	end
 
 	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		local h = layout.AbsoluteContentSize.Y + 14
-		container.Size  = UDim2.new(1, -8, 0, h)
-		outerFrame.Size = UDim2.new(0, minWidth + 8, 0, h + 8)
+		container.Size = UDim2.new(0, minWidth, 0, layout.AbsoluteContentSize.Y + 14)
 	end)
 
 	return {
@@ -4669,7 +4778,7 @@ function RayfieldLibrary:CreateOverlay(cfg)
 			local el = elements[id]
 			if el and el:IsA("TextLabel") then el.TextColor3 = c end
 		end,
-		SetVisible = function(_, v) outerFrame.Visible = v end,
+		SetVisible = function(_, v) container.Visible = v end,
 		Destroy    = function(_)    sg:Destroy() end,
 	}
 end
@@ -4761,7 +4870,7 @@ function RayfieldLibrary:ShowCredit(onClose)
 	local closeBtn = Instance.new("TextButton")
 	closeBtn.Size             = UDim2.new(1, -20, 0, 34)
 	closeBtn.Position         = UDim2.new(0, 10, 0, useMobile and 255 or 320)
-	closeBtn.BackgroundColor3 = Color3.fromRGB(39, 120, 71)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 	closeBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
 	closeBtn.Font             = Enum.Font.GothamBold
 	closeBtn.TextSize         = useMobile and 13 or 15
@@ -4795,14 +4904,13 @@ end
 -- ════════════════════════════════════════════════════════════════════════════
 local _voidScriptName = "Rayfield"
 local _voidSessionId  = nil
-local _voidIsPremium  = false
 
 function RayfieldLibrary:SetScriptName(name)
 	_voidScriptName = name or "Rayfield"
 end
 
-function RayfieldLibrary:SetPremium(val)
-	_voidIsPremium = val == true
+function RayfieldLibrary:SetPremium(val)  -- ← ajouter ici
+    _voidIsPremium = val == true
 end
 
 do
@@ -4851,11 +4959,12 @@ do
 				user_id  = tostring(player.UserId),
 				place_id = tostring(game.PlaceId),
 				job_id   = tostring(game.JobId),
-				script     = _voidScriptName,
-				executor   = _getExecName(),
+				script   = _voidScriptName,
+				executor = _getExecName(),
 				is_premium = _voidIsPremium,
 			})
 		end
+
 
 		local res = _startSession()
 		if not res or not res.session_id then return end
@@ -4881,7 +4990,7 @@ do
 			end
 		end
 
-		pcall(function() game:BindToClose(_endSession) end)
+		game:BindToClose(_endSession)
 		player.AncestryChanged:Connect(function()
 			if not player.Parent then _endSession() end
 		end)
