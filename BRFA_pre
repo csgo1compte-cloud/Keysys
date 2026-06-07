@@ -1759,6 +1759,178 @@ TabPlantRush:CreateButton({
 })
 
 -- ════════════════════════════════════════════════════════
+--  TAB CARNIVAL MUTATION
+-- ════════════════════════════════════════════════════════
+local TabCarnival = Win:CreateTab("Carnival Mutation", "zap")
+
+local carnivalActive  = false
+local stopCarnival    = false
+local carnivalSpeed   = 32  -- walkspeed par défaut
+local defaultSpeed    = humanoid.WalkSpeed
+
+local WhackSwing = ReplicatedStorage.Remotes.WhackACrop.Swing
+
+local function getCarnivalTargets()
+    local folder = workspace:FindFirstPath("InteractiveEvents.CarnivalMutation")
+        or (workspace:FindFirstChild("InteractiveEvents")
+            and workspace.InteractiveEvents:FindFirstChild("CarnivalMutation"))
+    if not folder then return {} end
+    local out = {}
+    for _, child in ipairs(folder:GetChildren()) do
+        if child:IsA("Model") then
+            table.insert(out, child)
+        end
+    end
+    return out
+end
+
+TabCarnival:CreateSection("Settings")
+
+TabCarnival:CreateSlider({
+    Name         = "Walk speed",
+    Range        = {16, 100},
+    Increment    = 2,
+    CurrentValue = carnivalSpeed,
+    Flag         = "CarnivalSpeed",
+    Callback     = function(v)
+        carnivalSpeed = v
+        if carnivalActive then
+            humanoid.WalkSpeed = carnivalSpeed
+        end
+    end,
+})
+
+TabCarnival:CreateSection("Auto-Whack")
+
+TabCarnival:CreateToggle({
+    Name         = "Enable Auto-Whack",
+    CurrentValue = false,
+    Flag         = "AutoWhack",
+    Callback     = function(state)
+        if state then
+            if carnivalActive then return end
+            carnivalActive = true
+            stopCarnival   = false
+            humanoid.WalkSpeed = carnivalSpeed
+
+            task.spawn(function()
+                while not stopCarnival do
+                    local targets = getCarnivalTargets()
+
+                    if #targets == 0 then
+                        task.wait(0.5)
+                        continue
+                    end
+
+                    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+                    if not hrp then task.wait(0.5) continue end
+
+                    -- trie par distance croissante
+                    table.sort(targets, function(a, b)
+                        local pa = a:GetPivot().Position
+                        local pb = b:GetPivot().Position
+                        return (hrp.Position - pa).Magnitude < (hrp.Position - pb).Magnitude
+                    end)
+
+                    for _, target in ipairs(targets) do
+                        if stopCarnival then break end
+                        if not target or not target.Parent then continue end
+
+                        local pos = target:GetPivot().Position
+                        humanoid:MoveTo(pos)
+
+                        -- attend d'être assez proche (max 5s)
+                        local timeout = 0
+                        while target.Parent
+                            and (hrp.Position - pos).Magnitude > 8
+                            and timeout < 5
+                            and not stopCarnival
+                        do
+                            task.wait(0.1)
+                            timeout += 0.1
+                        end
+
+                        if stopCarnival then break end
+
+                        if target.Parent and (hrp.Position - pos).Magnitude <= 10 then
+                            pcall(function()
+                                WhackSwing:FireServer()
+                            end)
+                            UI:Notify({
+                                Title    = "Carnival",
+                                Content  = "Swung at " .. target.Name,
+                                Duration = 2,
+                            })
+                        end
+
+                        task.wait(0.2)
+                    end
+
+                    task.wait(0.3)
+                end
+
+                humanoid.WalkSpeed = defaultSpeed
+                carnivalActive = false
+            end)
+
+            UI:Notify({ Title = "Carnival Mutation", Content = "Auto-whack démarré.", Duration = 3 })
+        else
+            stopCarnival = true
+            humanoid.WalkSpeed = defaultSpeed
+            UI:Notify({ Title = "Carnival Mutation", Content = "Auto-whack arrêté.", Duration = 3 })
+        end
+    end,
+})
+
+TabCarnival:CreateButton({
+    Name     = "Whack now (one shot)",
+    Callback = function()
+        task.spawn(function()
+            local hrp = character and character:FindFirstChild("HumanoidRootPart")
+            if not hrp then
+                UI:Notify({ Title = "Carnival", Content = "Character pas prêt.", Duration = 3 })
+                return
+            end
+
+            local targets = getCarnivalTargets()
+            if #targets == 0 then
+                UI:Notify({ Title = "Carnival", Content = "Aucune cible trouvée.", Duration = 3 })
+                return
+            end
+
+            local prevSpeed = humanoid.WalkSpeed
+            humanoid.WalkSpeed = carnivalSpeed
+            local count = 0
+
+            table.sort(targets, function(a, b)
+                local pa = a:GetPivot().Position
+                local pb = b:GetPivot().Position
+                return (hrp.Position - pa).Magnitude < (hrp.Position - pb).Magnitude
+            end)
+
+            for _, target in ipairs(targets) do
+                if not target or not target.Parent then continue end
+                local pos = target:GetPivot().Position
+                humanoid:MoveTo(pos)
+                local timeout = 0
+                while target.Parent and (hrp.Position - pos).Magnitude > 8 and timeout < 5 do
+                    task.wait(0.1)
+                    timeout += 0.1
+                end
+                if target.Parent and (hrp.Position - pos).Magnitude <= 10 then
+                    pcall(function() WhackSwing:FireServer() end)
+                    count += 1
+                end
+                task.wait(0.2)
+            end
+
+            humanoid.WalkSpeed = prevSpeed
+            UI:Notify({ Title = "Carnival", Content = count .. " cible(s) whackées.", Duration = 3 })
+        end)
+    end,
+})
+
+-- ════════════════════════════════════════════════════════
 --  TAB INFO
 -- ════════════════════════════════════════════════════════
 local TabInfo = Win:CreateTab("Info", "info")
