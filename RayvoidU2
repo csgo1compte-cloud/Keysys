@@ -220,8 +220,10 @@ end
 local InterfaceBuild = 'UU2NX'
 local Release = "Build 1.746"
 local RayfieldFolder = "Rayfield"
-local ConfigurationFolder = RayfieldFolder.."/Configurations"
+local ConfigurationFolder = "RayVoid_cfg"
 local ConfigurationExtension = ".rfld"
+local VoidPrefsFolder = "RayVoid_cfg"
+local VoidPrefsFile  = "RayVoid_cfg/RayVoid.json"
 
 
 
@@ -254,6 +256,47 @@ local function ensureFolder(folderPath)
 	if isfolder and not callSafely(isfolder, folderPath) then
 		callSafely(makefolder, folderPath)
 	end
+end
+
+local ChangeTheme -- forward declaration (définie plus bas)
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  RAYVOID PREFS — fichier global RayVoid_cfg/RayVoid.json
+--  Stocke : thème actif, touche hide/show
+--  Chargé au démarrage, sauvegardé à chaque changement
+-- ════════════════════════════════════════════════════════════════════════════
+local function _saveVoidPrefs()
+	if not (isfile and writefile) then return end
+	pcall(function()
+		ensureFolder(VoidPrefsFolder)
+		local data = {
+			theme   = (function()
+				for name, t in pairs(RayfieldLibrary.Theme) do
+					if t == SelectedTheme then return name end
+				end
+				return "Default"
+			end)(),
+			keybind = toggleKeybind,
+		}
+		writefile(VoidPrefsFile, HttpService:JSONEncode(data))
+	end)
+end
+
+local function _loadVoidPrefs()
+	if not (isfile and readfile) then return end
+	pcall(function()
+		if not isfile(VoidPrefsFile) then return end
+		local ok, data = pcall(function()
+			return HttpService:JSONDecode(readfile(VoidPrefsFile))
+		end)
+		if not ok or type(data) ~= "table" then return end
+		if type(data.keybind) == "string" and data.keybind ~= "" then
+			toggleKeybind = data.keybind
+		end
+		if type(data.theme) == "string" and RayfieldLibrary.Theme[data.theme] then
+			pcall(ChangeTheme, data.theme)
+		end
+	end)
 end
 
 
@@ -658,6 +701,7 @@ local correctBuild = false
 local warned
 local globalLoaded
 local rayfieldDestroyed = false -- True when RayfieldLibrary:Destroy() is called
+local _pendingRestore = {} -- Flag -> valeur sauvegardée, en attente que le composant soit créé
 
 repeat
 	if Rayfield:FindFirstChild('Build') and Rayfield.Build.Value == InterfaceBuild then
@@ -913,7 +957,7 @@ end
 
 local SelectedTheme = RayfieldLibrary.Theme.Default
 
-local function ChangeTheme(Theme)
+ChangeTheme = function(Theme)
 	if typeof(Theme) == 'string' then
 		SelectedTheme = RayfieldLibrary.Theme[Theme]
 	elseif typeof(Theme) == 'table' then
@@ -1061,6 +1105,9 @@ local function ChangeTheme(Theme)
 			end
 		end
 	end
+
+	-- Sauvegarde du thème dans les prefs globales
+	_saveVoidPrefs()
 end
 
 local function getIcon(name : string): {id: number, imageRectSize: Vector2, imageRectOffset: Vector2}
@@ -1222,34 +1269,56 @@ local function LoadConfiguration(Configuration)
 
 	if not success then warn('Rayfield had an issue decoding the configuration file, please try delete the file and reopen Rayfield.') return end
 
-	-- Iterate through current UI elements' flags
-	for FlagName, Flag in pairs(RayfieldLibrary.Flags) do
-		local FlagValue = Data[FlagName]
-
-		if (typeof(FlagValue) == 'boolean' and FlagValue == false) or FlagValue then
+	-- Stocker toutes les valeurs du fichier en attente (pendingRestore)
+	-- Les composants déjà créés sont restaurés immédiatement
+	-- Les composants dynamiques (créés plus tard) récupèreront leur valeur à la création
+	for FlagName, FlagValue in pairs(Data) do
+		_pendingRestore[FlagName] = FlagValue
+		local Flag = RayfieldLibrary.Flags[FlagName]
+		if Flag then
 			task.spawn(function()
 				if Flag.Type == "ColorPicker" then
 					changed = true
 					Flag:Set(UnpackColor(FlagValue))
+				elseif Flag.Type == "ProgressBar" then
+					changed = true
+					if Flag.SetValue then Flag:SetValue(tonumber(FlagValue) or 0) end
+				elseif Flag.Type == "MultiToggle" then
+					changed = true
+					if Flag.SetValue and type(FlagValue) == "table" then Flag:SetValue(FlagValue) end
+				elseif Flag.Type == "CardGrid" or Flag.Type == "FilteredCardGrid" then
+					changed = true
+					if Flag.SetSelected and type(FlagValue) == "table" then Flag:SetSelected(FlagValue) end
 				else
-					if (Flag.CurrentValue or Flag.CurrentKeybind or Flag.CurrentOption or Flag.Color) ~= FlagValue then 
+					if (Flag.CurrentValue or Flag.CurrentKeybind or Flag.CurrentOption or Flag.Color) ~= FlagValue then
 						changed = true
-						Flag:Set(FlagValue) 	
+						Flag:Set(FlagValue)
 					end
 				end
 			end)
-		else
-			warn("Rayfield | Unable to find '"..FlagName.. "' in the save file.")
-			print("The error above may not be an issue if new elements have been added or not been set values.")
-			--RayfieldLibrary:Notify({Title = "Rayfield Flags", Content = "Rayfield was unable to find '"..FlagName.. "' in the save file. Check sirius.menu/discord for help.", Image = 3944688398})
 		end
 	end
 
 	return changed
 end
 
+-- Applique une valeur en attente à un composant qui vient d'être créé dynamiquement
+local function _applyPendingRestore(flagName, obj)
+	local val = _pendingRestore[flagName]
+	if val == nil then return end
+	task.defer(function() -- defer pour laisser le composant finir son init
+		if obj.Type == "ProgressBar" then
+			if obj.SetValue then obj:SetValue(tonumber(val) or 0) end
+		elseif obj.Type == "MultiToggle" then
+			if obj.SetValue and type(val) == "table" then obj:SetValue(val) end
+		elseif obj.Type == "CardGrid" or obj.Type == "FilteredCardGrid" then
+			if obj.SetSelected and type(val) == "table" then obj:SetSelected(val) end
+		end
+	end)
+end
+
 local function SaveConfiguration()
-	if not CEnabled or not globalLoaded then return end
+	if not CEnabled then return end
 
 	if debugX then
 		print('Saving')
@@ -1259,6 +1328,12 @@ local function SaveConfiguration()
 	for i, v in pairs(RayfieldLibrary.Flags) do
 		if v.Type == "ColorPicker" then
 			Data[i] = PackColor(v.Color)
+		elseif v.Type == "ProgressBar" then
+			Data[i] = v.GetValue and v:GetValue() or 0
+		elseif v.Type == "MultiToggle" then
+			Data[i] = v.GetValue and v:GetValue() or {}
+		elseif v.Type == "CardGrid" or v.Type == "FilteredCardGrid" then
+			Data[i] = v.GetSelected and v:GetSelected() or {}
 		else
 			if typeof(v.CurrentValue) == 'boolean' then
 				if v.CurrentValue == false then
@@ -1726,8 +1801,8 @@ function RayfieldLibrary:CreateWindow(Settings)
 	end
 
 	ensureFolder(RayfieldFolder)
-
-	Topbar.Title.Text = Settings.Name
+	ensureFolder(VoidPrefsFolder)
+	_loadVoidPrefs()
 
 	Main.Size = UDim2.new(0, 420, 0, 100)
 	Main.Visible = true
@@ -1962,6 +2037,15 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 		local Tab = {}
 
+		-- Vide tous les éléments du tab (utile pour les tabs reconstruits dynamiquement)
+		function Tab:Clear()
+			for _, child in ipairs(TabPage:GetChildren()) do
+				if child.ClassName == "Frame" and child.Name ~= "Placeholder" then
+					child:Destroy()
+				end
+			end
+		end
+
 		-- Button
 		function Tab:CreateButton(ButtonSettings)
 			local ButtonValue = {}
@@ -2167,7 +2251,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 				local r,g,b = math.floor((h*255)+0.5),math.floor((s*255)+0.5),math.floor((v*255)+0.5)
 				ColorPickerSettings.Color = Color3.fromRGB(r,g,b)
 				if not ColorPickerSettings.Ext then
-					SaveConfiguration()
 				end
 			end)
 			--RGB
@@ -2223,7 +2306,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 					pcall(function()ColorPickerSettings.Callback(Color3.fromHSV(h,s,v))end)
 					ColorPickerSettings.Color = Color3.fromRGB(r,g,b)
 					if not ColorPickerSettings.Ext then
-						SaveConfiguration()
 					end
 				end
 				if sliderDragging then 
@@ -2243,7 +2325,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 					pcall(function()ColorPickerSettings.Callback(Color3.fromHSV(h,s,v))end)
 					ColorPickerSettings.Color = Color3.fromRGB(r,g,b)
 					if not ColorPickerSettings.Ext then
-						SaveConfiguration()
 					end
 				end
 			end)
@@ -2492,7 +2573,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end
 
 				if not InputSettings.Ext then
-					SaveConfiguration()
 				end
 			end)
 
@@ -2517,7 +2597,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end)
 
 				if not InputSettings.Ext then
-					SaveConfiguration()
 				end
 			end
 
@@ -2749,7 +2828,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 						end
 						Debounce = false
 						if not DropdownSettings.Ext then
-							SaveConfiguration()
 						end
 					end)
 
@@ -2909,7 +2987,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 				if Keybind.KeybindFrame.KeybindBox.Text == nil or Keybind.KeybindFrame.KeybindBox.Text == "" then
 					Keybind.KeybindFrame.KeybindBox.Text = KeybindSettings.CurrentKeybind
 					if not KeybindSettings.Ext then
-						SaveConfiguration()
 					end
 				end
 			end)
@@ -2931,7 +3008,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 						KeybindSettings.CurrentKeybind = tostring(NewKeyNoEnum)
 						Keybind.KeybindFrame.KeybindBox:ReleaseFocus()
 						if not KeybindSettings.Ext then
-							SaveConfiguration()
 						end
 
 						if KeybindSettings.CallOnChange then
@@ -2987,7 +3063,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 				KeybindSettings.CurrentKeybind = tostring(NewKeybind)
 				Keybind.KeybindFrame.KeybindBox:ReleaseFocus()
 				if not KeybindSettings.Ext then
-					SaveConfiguration()
 				end
 
 				if KeybindSettings.CallOnChange then
@@ -3094,7 +3169,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end
 
 				if not ToggleSettings.Ext then
-					SaveConfiguration()
 				end
 			end)
 
@@ -3144,7 +3218,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end
 
 				if not ToggleSettings.Ext then
-					SaveConfiguration()
 				end
 			end
 
@@ -3294,7 +3367,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 							SliderSettings.CurrentValue = NewValue
 							if not SliderSettings.Ext then
-								SaveConfiguration()
 							end
 						end
 					else
@@ -3328,7 +3400,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 				SliderSettings.CurrentValue = NewVal
 				if not SliderSettings.Ext then
-					SaveConfiguration()
 				end
 			end
 
@@ -3411,7 +3482,8 @@ function RayfieldLibrary:CreateWindow(Settings)
 			VCorner(3, fill)
 			VGradient(VC.Accent, VC.AccentPink, fill, 0)
 
-			return {
+			local progressObj = {
+				Type = "ProgressBar",
 				SetValue = function(_, v)
 					v = math.clamp(v, 0, maxVal)
 					curVal = v
@@ -3420,6 +3492,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end,
 				GetValue = function() return curVal end,
 			}
+
+			if cfg.Flag then
+				RayfieldLibrary.Flags[cfg.Flag] = progressObj
+				_applyPendingRestore(cfg.Flag, progressObj)
+			end
+
+			return progressObj
 		end
 
 		-- ── CARD GRID — grille de cards visuelles sélectionnables ────────────────
@@ -3530,12 +3609,37 @@ function RayfieldLibrary:CreateWindow(Settings)
 				clickZone.MouseButton1Click:Connect(function()
 					SetCardSelected(not isSelected)
 				end)
+
+				-- Hook OnCardCreated — appelé après création de chaque card
+				if cfg.OnCardCreated then
+					task.spawn(function()
+						cfg.OnCardCreated(item.Name, nameLabel)
+					end)
+				end
 			end
 
-			return {
+			local cardObj = {
+				Type = "CardGrid",
 				GetSelected = function() return selected end,
+				SetSelected = function(_, data)
+					if type(data) ~= "table" then return end
+					for _, item in ipairs(items) do
+						if data[item.Name] then
+							selected[item.Name] = true
+						end
+					end
+				end,
 			}
+			if cfg.Flag then
+				RayfieldLibrary.Flags[cfg.Flag] = cardObj
+				_applyPendingRestore(cfg.Flag, cardObj)
+			end
+			return cardObj
 		end
+
+
+
+
 
 		-- ── FILTERED CARD GRID — CardGrid avec filtre par groupe ─────────────────
 		function Tab:CreateFilteredCardGrid(cfg)
@@ -3823,8 +3927,16 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 			BuildGrid(currentGroup)
 
-			return {
+			local fcgObj = {
+				Type = "FilteredCardGrid",
 				GetSelected = function() return globalSelected end,
+				SetSelected = function(_, data)
+					if type(data) ~= "table" then return end
+					for k, v in pairs(data) do
+						globalSelected[k] = v or nil
+					end
+					BuildGrid(currentGroup)
+				end,
 				SelectAll = function(_, groupLabel)
 					local grp = groupIndex[groupLabel or currentGroup]
 					if not grp then return end
@@ -3840,6 +3952,11 @@ function RayfieldLibrary:CreateWindow(Settings)
 					callback(globalSelected)
 				end,
 			}
+			if cfg.Flag then
+				RayfieldLibrary.Flags[cfg.Flag] = fcgObj
+				_applyPendingRestore(cfg.Flag, fcgObj)
+			end
+			return fcgObj
 		end
 
 		-- ── MULTI TOGGLE — plusieurs toggles indépendants sous un label ──────────
@@ -3865,6 +3982,8 @@ function RayfieldLibrary:CreateWindow(Settings)
 				UDim2.new(1, 0, 0, 22), nil,
 				SelectedTheme.TextColor, 11, Enum.Font.GothamBold
 			)
+
+			local _rowRefs = {} -- {opt -> {pill, knob, setState}}
 
 			for i, opt in ipairs(options) do
 				local state = false
@@ -3899,6 +4018,20 @@ function RayfieldLibrary:CreateWindow(Settings)
 				)
 				VCorner(7, knob)
 
+				local function applyVisual(v, instant)
+					if v then
+						if instant then pill.BackgroundColor3 = VC.Accent; knob.Position = UDim2.new(1, -16, 0.5, -7)
+						else VTween(pill, { BackgroundColor3 = VC.Accent }, 0.18); VTween(knob, { Position = UDim2.new(1, -16, 0.5, -7) }, 0.18) end
+					else
+						if instant then pill.BackgroundColor3 = VC.BgDeep; knob.Position = UDim2.new(0, 2, 0.5, -7)
+						else VTween(pill, { BackgroundColor3 = VC.BgDeep }, 0.18); VTween(knob, { Position = UDim2.new(0, 2, 0.5, -7) }, 0.18) end
+					end
+				end
+
+				_rowRefs[opt] = { pill = pill, knob = knob, applyVisual = applyVisual,
+					getState = function() return state end,
+					setState = function(v) state = v end }
+
 				local cz = Instance.new("TextButton")
 				cz.Size                 = UDim2.new(1, 0, 1, 0)
 				cz.BackgroundTransparency = 1
@@ -3907,22 +4040,33 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 				cz.MouseButton1Click:Connect(function()
 					state = not state
-					if state then
-						selected[opt] = true
-						VTween(pill, { BackgroundColor3 = VC.Accent }, 0.18)
-						VTween(knob, { Position = UDim2.new(1, -16, 0.5, -7) }, 0.18)
-					else
-						selected[opt] = nil
-						VTween(pill, { BackgroundColor3 = VC.BgDeep }, 0.18)
-						VTween(knob, { Position = UDim2.new(0, 2, 0.5, -7) }, 0.18)
-					end
+					selected[opt] = state or nil
+					applyVisual(state, false)
 					callback(selected)
 				end)
 			end
 
-			return {
+			local mtObj = {
+				Type = "MultiToggle",
 				GetValue = function() return selected end,
+				SetValue = function(_, data)
+					if type(data) ~= "table" then return end
+					for _, opt in ipairs(options) do
+						local v = data[opt] == true
+						selected[opt] = v or nil
+						local ref = _rowRefs[opt]
+						if ref then
+							ref.setState(v)
+							ref.applyVisual(v, true)
+						end
+					end
+				end,
 			}
+			if cfg.Flag then
+				RayfieldLibrary.Flags[cfg.Flag] = mtObj
+				_applyPendingRestore(cfg.Flag, mtObj)
+			end
+			return mtObj
 		end
 
 		return Tab
@@ -3991,6 +4135,31 @@ function RayfieldLibrary:CreateWindow(Settings)
 	-- ════════════════════════════════════════════════════════════════════════
 	local SettingsTab = Window:CreateTab('Rayfield Settings', 0, true)
 
+	SettingsTab:CreateSection('Configuration')
+
+	SettingsTab:CreateButton({
+		Name     = 'Sauvegarder la config',
+		Callback = function()
+			if not CEnabled then
+				RayfieldLibrary:Notify({Title = 'Config', Content = 'La sauvegarde de config n\'est pas activée pour ce script.', Duration = 4, Image = 4400704299})
+				return
+			end
+			SaveConfiguration()
+			RayfieldLibrary:Notify({Title = 'Config sauvegardée', Content = 'Tous tes paramètres ont été sauvegardés.', Duration = 3, Image = 4384403532})
+		end,
+	})
+
+	SettingsTab:CreateButton({
+		Name     = 'Charger la config',
+		Callback = function()
+			if not CEnabled then
+				RayfieldLibrary:Notify({Title = 'Config', Content = 'La sauvegarde de config n\'est pas activée pour ce script.', Duration = 4, Image = 4400704299})
+				return
+			end
+			RayfieldLibrary:LoadConfiguration()
+		end,
+	})
+
 	SettingsTab:CreateSection('Apparence')
 
 	local themeNames = {}
@@ -4031,8 +4200,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 		Title = 'VoidUI',
 		Content = 'Interface by AKkiwi — version actuelle.\nTous mes scripts sont gratuits et sans key.',
 	})
-
-
 
 	return Window
 end
