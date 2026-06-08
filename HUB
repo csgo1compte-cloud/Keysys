@@ -12,6 +12,10 @@ local Scripts = {
         Name = "My-Gaming-Cafe",
         Url  = "https://raw.githubusercontent.com/csgo1compte-cloud/Premium/refs/heads/main/cofe",
     },
+    [131346454575416] = {
+        Name = "Mini-War",
+        Url  = "https://raw.githubusercontent.com/csgo1compte-cloud/Premium/refs/heads/main/war",
+    },
     
 }
 
