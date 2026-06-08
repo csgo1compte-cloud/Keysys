@@ -6,11 +6,11 @@ local Scripts = {
     -- [PlaceId] = { Name = "Nom du jeu", Url = "lien raw" }
     [107646426076756] = {
         Name = "Build-A-Ring-Farm",
-        Url  = "https://raw.githubusercontent.com/csgo1compte-cloud/Keysys/refs/heads/main/BRFA_pre",
+        Url  = "https://raw.githubusercontent.com/csgo1compte-cloud/Premium/refs/heads/main/Premium_Barf",
     },
     [101736964164901] = {
-        Name = "Lawn Brainrot",
-        Url  = "https://raw.githubusercontent.com/csgo1compte-cloud/Keysys/refs/heads/main/Coffe",
+        Name = "My-Gaming-Cafe",
+        Url  = "https://raw.githubusercontent.com/csgo1compte-cloud/Premium/refs/heads/main/cofe",
     },
     
 }
