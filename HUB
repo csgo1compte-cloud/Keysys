@@ -16,6 +16,10 @@ local Scripts = {
         Name = "Mini-War",
         Url  = "https://raw.githubusercontent.com/csgo1compte-cloud/Premium/refs/heads/main/war",
     },
+    [139992937215031] = {
+        Name = "Drop-Balls-For-Brainrots",
+        Url  = "https://raw.githubusercontent.com/csgo1compte-cloud/Premium/refs/heads/main/Balls_pre",
+    },
     
 }
 
